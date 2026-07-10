@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, Grid, List as ListIcon, Plus, Settings, Bell, HelpCircle, Search, MoreHorizontal, Check, X, Calendar, Type, Hash, AlignLeft, Trash2, Edit2, ChevronDown, CheckSquare, LayoutGrid, Download, Share2, Copy } from 'lucide-react';
+import { Menu, Plus, Trash2, List as ListIcon, Loader2 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, collection, onSnapshot } from 'firebase/firestore';
+import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: "AIzaSyBY8gz_YjKHydM-XGuAWVq-aj2Ipgvaw-Y",
@@ -20,64 +20,98 @@ const appId = "default-app-id";
 
 export default function App() {
   const [user, setUser] = useState(null);
-  const [lists, setLists] = useState([]);
+  const [lists, setLists] = useState([{ id: 'default', name: 'Daftar Utama' }]);
   const [allItems, setAllItems] = useState([]);
-  const [activeListId, setActiveListId] = useState(null);
+  const [activeListId, setActiveListId] = useState('default');
+  const [newItemTitle, setNewItemTitle] = useState('');
 
   useEffect(() => {
     signInAnonymously(auth);
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-    });
-    return () => unsubscribe();
+    onAuthStateChanged(auth, setUser);
   }, []);
 
   useEffect(() => {
     if (!user) return;
-    const listsRef = collection(db, 'artifacts', appId, 'public', 'data', 'lists');
-    const unsubLists = onSnapshot(listsRef, (snapshot) => {
-      const fetchedLists = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setLists(fetchedLists);
-      if (fetchedLists.length > 0 && !activeListId) setActiveListId(fetchedLists[0].id);
-    });
     const itemsRef = collection(db, 'artifacts', appId, 'public', 'data', 'items');
-    const unsubItems = onSnapshot(itemsRef, (snapshot) => {
+    const unsub = onSnapshot(itemsRef, (snapshot) => {
       setAllItems(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
-    return () => { unsubLists(); unsubItems(); };
+    return () => unsub();
   }, [user]);
 
-  const activeList = lists.find(l => l.id === activeListId);
-  const currentListItems = allItems.filter(item => item.listId === activeListId);
+  const handleAddItem = async () => {
+    if (!newItemTitle.trim()) return;
+    const itemsRef = collection(db, 'artifacts', appId, 'public', 'data', 'items');
+    await addDoc(itemsRef, {
+      title: newItemTitle,
+      listId: activeListId,
+      status: 'Baru',
+      createdAt: new Date().toISOString()
+    });
+    setNewItemTitle('');
+  };
 
-  if (!user) return <div className="flex h-screen items-center justify-center">Menghubungkan ke database...</div>;
+  const handleDeleteItem = async (id) => {
+    const itemRef = doc(db, 'artifacts', appId, 'public', 'data', 'items', id);
+    await deleteDoc(itemRef);
+  };
+
+  if (!user) return <div className="flex h-screen items-center justify-center">Memuat aplikasi...</div>;
 
   return (
-    <div className="flex h-screen bg-gray-100">
-      <main className="flex-1 overflow-auto p-6">
-        <h1 className="text-2xl font-bold mb-4">{activeList ? activeList.name : "Daftar Lists"}</h1>
-        <table className="min-w-full bg-white rounded shadow">
-          <thead>
-            <tr>
-              <th className="px-6 py-3 border-b text-left">Judul</th>
-              <th className="px-6 py-3 border-b text-left">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {currentListItems.length > 0 ? (
-              currentListItems.map(item => (
-                <tr key={item.id}>
-                  <td className="px-6 py-4 border-b">{item.title || "Tanpa Judul"}</td>
-                  <td className="px-6 py-4 border-b">{item.status || "Baru"}</td>
-                </tr>
-              ))
-            ) : (
+    <div className="flex h-screen bg-gray-50 text-gray-900">
+      <div className="w-64 bg-white border-r p-4">
+        <h2 className="font-bold text-lg mb-6">Microsoft Lists</h2>
+        {lists.map(list => (
+          <button 
+            key={list.id}
+            onClick={() => setActiveListId(list.id)}
+            className={`flex items-center w-full p-2 rounded ${activeListId === list.id ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
+          >
+            <ListIcon className="mr-2 h-4 w-4" /> {list.name}
+          </button>
+        ))}
+      </div>
+
+      <main className="flex-1 p-8">
+        <h1 className="text-2xl font-bold mb-6">Daftar Item</h1>
+        
+        <div className="flex gap-2 mb-6">
+          <input 
+            value={newItemTitle}
+            onChange={(e) => setNewItemTitle(e.target.value)}
+            placeholder="Tambah item baru..."
+            className="border p-2 rounded flex-1"
+          />
+          <button onClick={handleAddItem} className="bg-blue-600 text-white px-4 py-2 rounded flex items-center">
+            <Plus className="h-4 w-4 mr-1" /> Tambah
+          </button>
+        </div>
+
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <table className="w-full text-left">
+            <thead className="bg-gray-100 border-b">
               <tr>
-                <td colSpan="2" className="px-6 py-4 text-center text-gray-500">Belum ada item di daftar ini</td>
+                <th className="px-6 py-3">Judul</th>
+                <th className="px-6 py-3">Status</th>
+                <th className="px-6 py-3">Aksi</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {allItems.filter(i => i.listId === activeListId).map(item => (
+                <tr key={item.id} className="border-b">
+                  <td className="px-6 py-4">{item.title}</td>
+                  <td className="px-6 py-4">{item.status}</td>
+                  <td className="px-6 py-4">
+                    <button onClick={() => handleDeleteItem(item.id)} className="text-red-500 hover:text-red-700">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </main>
     </div>
   );
