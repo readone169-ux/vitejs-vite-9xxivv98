@@ -43,17 +43,17 @@ import {
 
 // --- FIREBASE SETUP ---
 const firebaseConfig = {
-  apiKey: 'AIzaSyB8gz_YjKhYdM-XGuAWwq-aj2Ipgvaw-Y',
-  authDomain: 'aplikasi-list-kantor.firebaseapp.com',
-  projectId: 'aplikasi-list-kantor',
-  storageBucket: 'aplikasi-list-kantor.firebasestorage.app',
-  messagingSenderId: '1036894354417',
-  appId: '1:1036894354417:web:7a5f2f994ab405ee47e250',
+  apiKey: "AIzaSyBY8gz_YjKhYdM-XGuAWwq-aj2Ipgvaw-Y",
+  authDomain: "aplikasi-list-kantor.firebaseapp.com",
+  projectId: "aplikasi-list-kantor",
+  storageBucket: "aplikasi-list-kantor.firebasestorage.app",
+  messagingSenderId: "1036894354417",
+  appId: "1:1036894354417:web:c95f8b435bc8294e47e250"
 };
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const appId = 'aplikasi-list-kantor';
+const appId = "default-app-id";
 
 // --- HELPER COMPONENTS ---
 const Badge = ({ children, colorClass = 'bg-gray-100 text-gray-800' }) => (
